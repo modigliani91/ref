@@ -1,0 +1,35 @@
+plt.figure(figsize=(16, 12))
+
+# Comparaison saisonnière
+ax4 = plt.subplot(2, 2, 4)
+saison_labels = ['Hiver', 'Printemps', 'Été', 'Automne']
+
+# Calcul des moyennes par saison
+saison_means = df.groupby('saison')['lunch'].mean().sort_index() * 100  # Conversion en pourcentage
+
+# Création du barplot
+barplot = sns.barplot(data=df, x='saison', y='lunch', palette='viridis', ci=None, 
+                      order=[1,2,3,4], estimator=np.mean)
+
+plt.title('Fréquentation moyenne par saison')
+plt.xticks([0,1,2,3], saison_labels)
+plt.ylabel('Taux de présence moyen (%)')
+plt.xlabel('Saison')
+plt.grid(True, axis='y', alpha=0.3)
+
+# Ajout des valeurs sur les barres
+for i, (season, mean_val) in enumerate(zip([1,2,3,4], saison_means)):
+    barplot.text(i, mean_val/100 + 0.01, 
+                 f'{mean_val:.1f}%', 
+                 ha='center', 
+                 va='bottom',
+                 fontsize=10,
+                 color='black')
+
+plt.tight_layout()
+plt.savefig('tendance_temporelle.png', dpi=300)
+plt.show()
+
+# Affichage complémentaire des données
+print("Taux de présence moyen par saison (en %) :")
+print(saison_means.to_string(float_format="%.1f%%"))
