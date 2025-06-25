@@ -1,0 +1,98 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.gridspec import GridSpec
+
+# Chargement et préparation des données
+df = pd.read_csv('cantine.csv', parse_dates=['date'])
+df['ingredients'] = df['plat'].str.replace(' ', '').str.lower().str.split('+')
+df = df.explode('ingredients')
+
+# Top 20 des ingrédients
+top_20 = df['ingredients'].value_counts().head(20).index.tolist()
+
+# 1. Préparation des dimensions d'analyse
+df['saison'] = df['date'].dt.month.apply(lambda m: (m%12 + 3)//3)
+df['month'] = df['date'].dt.month
+df['temp_interval'] = pd.cut(df['temperature'], 
+                            bins=[-10, 0, 10, 15, 20, 25, 30, 40],
+                            labels=['<0°C', '0-10°C', '10-15°C', '15-20°C', '20-25°C', '25-30°C', '>30°C'])
+
+# 2. Configuration des visualisations
+plt.figure(figsize=(20, 30))
+gs = GridSpec(5, 2, figure=plt.gcf())
+
+# 3. Analyse par Saison
+ax1 = plt.subplot(gs[0, 0])
+saison_data = df[df['ingredients'].isin(top_20)].groupby(['saison', 'ingredients']).size().unstack().fillna(0)
+saison_data = saison_data.div(saison_data.sum(axis=1), axis=0) * 100  # Pourcentages
+saison_data.plot(kind='bar', stacked=True, ax=ax1, colormap='viridis')
+plt.title('Répartition des Top 20 Ingrédients par Saison (%)')
+plt.ylabel('Pourcentage')
+plt.xlabel('Saison')
+plt.xticks([0,1,2,3], ['Hiver', 'Printemps', 'Été', 'Automne'], rotation=0)
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(axis='y', alpha=0.3)
+
+# 4. Analyse par Mois
+ax2 = plt.subplot(gs[0, 1])
+month_data = df[df['ingredients'].isin(top_20)].groupby(['month', 'ingredients']).size().unstack().fillna(0)
+month_data = month_data.div(month_data.sum(axis=1), axis=0) * 100
+sns.heatmap(month_data.T, annot=True, fmt='.1f', cmap='YlGnBu', ax=ax2)
+plt.title('Répartition Mensuelle des Top 20 Ingrédients (%)')
+plt.xlabel('Mois')
+plt.ylabel('Ingrédient')
+plt.xticks(ticks=np.arange(12)+0.5, labels=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'])
+
+# 5. Analyse par Jour de Semaine
+ax3 = plt.subplot(gs[1, 0])
+weekday_data = df[df['ingredients'].isin(top_20)].groupby(['day_of_the_week', 'ingredients']).size().unstack().fillna(0)
+weekday_data = weekday_data.reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
+weekday_data = weekday_data.div(weekday_data.sum(axis=1), axis=0) * 100
+sns.heatmap(weekday_data.T, annot=True, fmt='.1f', cmap='RdPu', ax=ax3)
+plt.title('Répartition par Jour de Semaine (%)')
+plt.xlabel('Jour')
+plt.ylabel('Ingrédient')
+plt.xticks(ticks=np.arange(5)+0.5, labels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'])
+
+# 6. Analyse par Conditions Météo
+ax4 = plt.subplot(gs[1, 1])
+df['meteo'] = 'Pluie'
+df.loc[df['clair'] == 1, 'meteo'] = 'Clair'
+df.loc[(df['nuageux'] == 1) & (df['pluie'] == 0), 'meteo'] = 'Nuageux'
+df.loc[(df['fortement nuageux'] == 1) & (df['pluie'] == 0), 'meteo'] = 'Très nuageux'
+
+meteo_data = df[df['ingredients'].isin(top_20)].groupby(['meteo', 'ingredients']).size().unstack().fillna(0)
+meteo_data = meteo_data.div(meteo_data.sum(axis=1), axis=0) * 100
+meteo_data.plot(kind='bar', stacked=True, ax=ax4, colormap='plasma')
+plt.title('Répartition par Conditions Météo (%)')
+plt.ylabel('Pourcentage')
+plt.xlabel('Conditions Météorologiques')
+plt.grid(axis='y', alpha=0.3)
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+# 7. Analyse par Intervalle de Température
+ax5 = plt.subplot(gs[2:, :])
+temp_data = df[df['ingredients'].isin(top_20)].groupby(['temp_interval', 'ingredients']).size().unstack().fillna(0)
+temp_data = temp_data.div(temp_data.sum(axis=1), axis=0) * 100
+sns.heatmap(temp_data.T, annot=True, fmt='.1f', cmap='coolwarm', ax=ax5)
+plt.title('Répartition par Intervalle de Température (%)')
+plt.xlabel('Intervalle de Température')
+plt.ylabel('Ingrédient')
+plt.tight_layout()
+plt.savefig('analyse_granulaire_ingredients.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+# 8. Export des données pour tableau de bord
+output_data = {
+    'Par Saison': saison_data,
+    'Par Mois': month_data,
+    'Par Jour': weekday_data,
+    'Par Météo': meteo_data,
+    'Par Température': temp_data
+}
+
+with pd.ExcelWriter('analyse_ingredients.xlsx') as writer:
+    for sheet_name, data in output_data.items():
+        data.to_excel(writer, sheet_name=sheet_name)
