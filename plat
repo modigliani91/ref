@@ -1,0 +1,27 @@
+# 1. Préparation des données sur les plats
+# Nettoyage des ingrédients
+df['plat_clean'] = df['plat'].str.replace(' ', '').str.lower().str.split('+')
+
+# Créer une liste de tous les ingrédients
+all_ingredients = [ingredient for sublist in df['plat_clean'].dropna() for ingredient in sublist]
+
+# 2. Analyse des ingrédients
+plt.figure(figsize=(16, 20))
+
+# Top 20 des ingrédients
+ingredient_counts = Counter(all_ingredients)
+top_ingredients = pd.DataFrame(ingredient_counts.most_common(20), columns=['Ingredient', 'Count'])
+
+ax1 = plt.subplot(3, 2, 1)
+sns.barplot(data=top_ingredients, y='Ingredient', x='Count', palette='viridis')
+plt.title('Top 20 des Ingrédients les Plus Courants')
+plt.xlabel('Fréquence')
+plt.ylabel('Ingrédient')
+plt.grid(True, axis='x', alpha=0.3)
+
+# Nuage de mots des ingrédients
+ax2 = plt.subplot(3, 2, 2)
+wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(ingredient_counts)
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.title('Nuage de Mots des Ingrédients')
