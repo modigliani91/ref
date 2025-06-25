@@ -1,0 +1,56 @@
+# 5. Analyse des habitudes des employés (CORRIGÉ)
+plt.figure(figsize=(16, 12))
+
+# Fréquence de visite par employé
+employee_visits = df.groupby('UID')['lunch'].agg(['sum','count'])
+employee_visits['freq'] = employee_visits['sum'] / employee_visits['count']
+
+# Solution alternative pour l'histogramme
+ax1 = plt.subplot(2, 2, 1)
+plt.hist(employee_visits['freq'], bins=20, color='purple', edgecolor='black', alpha=0.7)
+plt.title('Distribution de la fréquence de visite des employés')
+plt.xlabel('Fréquence de visite (jours présents/jours travaillés)')
+plt.ylabel("Nombre d'employés")
+plt.grid(True, alpha=0.3)
+
+# Ajout d'une courbe KDE séparément
+sns.kdeplot(employee_visits['freq'], color='purple', ax=ax1, secondary_y=True)
+
+# Segmentation des employés
+bins = [0, 0.2, 0.6, 1.0]
+labels = ['Occasionnels (<20%)', 'Réguliers (20-60%)', 'Fidèles (>60%)']
+employee_visits['segment'] = pd.cut(employee_visits['freq'], bins=bins, labels=labels)
+
+ax2 = plt.subplot(2, 2, 2)
+employee_visits['segment'].value_counts().plot.pie(autopct='%1.1f%%', 
+                                                  colors=['lightblue', 'steelblue', 'darkblue'])
+plt.title('Segmentation des employés par fidélité')
+plt.ylabel('')
+
+# Comportement hebdomadaire par segment
+segment_days = df.merge(employee_visits.reset_index()[['UID','segment']], on='UID')
+segment_analysis = segment_days.groupby(['segment', 'day_of_the_week'])['lunch'].mean().reset_index()
+
+ax3 = plt.subplot(2, 2, 3)
+sns.barplot(data=segment_analysis, x='segment', y='lunch', hue='day_of_the_week', 
+            hue_order=weekday_order, palette='viridis')
+plt.title('Fréquentation par segment et jour de semaine')
+plt.ylabel('Taux de présence moyen')
+plt.xlabel('Segment d\'employés')
+plt.legend(title='Jour', labels=weekday_fr)
+plt.grid(True, axis='y', alpha=0.3)
+
+# Impact météo par segment
+segment_meteo = segment_days.groupby(['segment', 'meteo'])['lunch'].mean().reset_index()
+
+ax4 = plt.subplot(2, 2, 4)
+sns.barplot(data=segment_meteo, x='segment', y='lunch', hue='meteo', 
+            hue_order=meteo_order, palette='pastel')
+plt.title('Sensibilité météo par segment')
+plt.ylabel('Taux de présence moyen')
+plt.xlabel('Segment d\'employés')
+plt.grid(True, axis='y', alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('analyse_employes.png', dpi=300)
+plt.show()
